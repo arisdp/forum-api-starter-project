@@ -1,0 +1,83 @@
+name: CI # Nama workflow
+
+on: # Pemicu workflow
+  push:
+    branches: [main] # Trigger saat ada push ke branch main
+  pull_request:
+    branches: [main] # Trigger saat ada pull request ke branch main
+
+jobs: # Sekumpulan pekerjaan yang akan dijalankan
+  unit-test: # Pekerjaan untuk menjalankan unit test
+    name: Unit Test # Nama pekerjaan
+    runs-on: ubuntu-latest # Sistem operasi yang digunakan untuk menjalankan pekerjaan
+    steps: # Langkah-langkah yang dijalankan dalam pekerjaan
+      - name: Checkout code # Langkah untuk mengambil kode dari repository
+        uses: actions/checkout@v2
+      - name: Set up Node.js # Langkah untuk menyiapkan Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: 16 # Versi Node.js yang digunakan
+      - name: Install dependencies # Langkah untuk menginstal dependensi proyek
+        run: npm install
+      - name: Run unit tests # Langkah untuk menjalankan unit test
+        run: npm run test:watch # Sesuaikan dengan perintah untuk menjalankan unit test Anda
+      - name: Check test coverage # Langkah untuk memeriksa cakupan tes
+        uses: codecov/codecov-action@v3 # Menggunakan Codecov untuk melihat laporan cakupan
+        with:
+          fail_ci_if_error: true
+
+  integration-test: # Pekerjaan untuk menjalankan integration test
+    name: Integration Test
+    runs-on: ubuntu-latest
+    services: # Mendefinisikan layanan yang dibutuhkan, dalam hal ini PostgreSQL untuk integration test
+      postgres:
+        image: postgres:13 # Menggunakan image PostgreSQL versi 13
+        container_name: postgres
+        env:
+          POSTGRES_USER: developer # Ganti dengan user PostgreSQL untuk testing
+          POSTGRES_PASSWORD: supersecretpassword # Ganti dengan password PostgreSQL untuk testing
+          POSTGRES_DB: forumapi_test # Ganti dengan nama database untuk testing
+        ports:
+          - "5432:5432" # Memetakan port 5432 di container ke port 5432 di host
+        options: >
+          -e POSTGRES_HOST_AUTH_METHOD=trust # Konfigurasi autentikasi PostgreSQL
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Set up Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: 16
+      - name: Install dependencies
+        run: npm install
+      - name: Setup test database # Langkah untuk menyiapkan database untuk testing
+        run: |
+          npm run migrate:test # Sesuaikan dengan perintah migrasi database Anda
+      - name: Run integration tests # Langkah untuk menjalankan integration test
+        env: # Variabel lingkungan yang dibutuhkan untuk menjalankan test
+          DB_HOST: localhost
+          DB_USER: developer # Ganti
+          DB_PASSWORD: supersecretpassword # Ganti
+          DB_NAME: forumapi # Ganti
+          DB_PORT: 5432
+        run: npm run test:integration # Sesuaikan dengan perintah integration test
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          fail_ci_if_error: true
+
+  failing-test: # Contoh pekerjaan yang sengaja dibuat gagal
+    name: Failing Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Set up Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: 16
+      - name: Install dependencies
+        run: npm install
+      - name: Run a test that fails # Langkah yang menjalankan test yang selalu gagal
+        run: |
+          npm run test:failing # Sesuaikan dengan perintah test yang selalu gagal

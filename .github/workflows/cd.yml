@@ -1,0 +1,35 @@
+name: CD # Nama workflow
+
+on: # Pemicu workflow
+  push:
+    branches: [main] # Trigger saat ada push ke branch main
+
+jobs: # Sekumpulan pekerjaan
+  deploy: # Pekerjaan untuk deployment
+    name: Deploy to EC2 # Nama pekerjaan
+    runs-on: ubuntu-latest # Sistem operasi yang digunakan
+    steps: # Langkah-langkah deployment
+      - name: Checkout code # Ambil kode dari repository
+        uses: actions/checkout@v2
+      - name: Set up Node.js # Siapkan Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: 16 # Versi Node.js
+      - name: Install dependencies # Instal dependensi
+        run: npm install
+      - name: Build application # Build aplikasi (jika ada)
+        run: npm run build # Sesuaikan
+      - name: Deploy to EC2 # Langkah utama: deployment ke EC2
+        uses: appleboy/ssh-action@v0.1.10 # Menggunakan action untuk SSH
+        with:
+          host: ${{ secrets.SSH_HOST }} # Ambil dari GitHub Secrets
+          username: ${{ secrets.SSH_USERNAME }} # Ambil dari Secrets
+          key: ${{ secrets.SSH_PRIVATE_KEY }} # Ambil dari Secrets
+          port: ${{ secrets.SSH_PORT }} # Ambil dari Secrets
+          script: | # Kumpulan perintah yang dijalankan di server EC2
+            cd /var/www/forum-api # Ganti dengan path aplikasi Anda
+            git pull origin main # Update kode
+            npm install --production # Instal dependensi di server
+            npm run migrate # Jalankan migrasi database
+            npm run seed # Jalankan seed jika ada
+            pm2 restart forum-api # Restart aplikasi (gunakan pm2 atau yang sesuai)
