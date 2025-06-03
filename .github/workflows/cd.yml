@@ -1,35 +1,78 @@
-name: CD # Nama workflow
+name: Continuous Deployment to AWS EC2
 
-on: # Pemicu workflow
-  push:
-    branches: [main] # Trigger saat ada push ke branch main
+on:
+  push: # Trigger workflow ini setiap kali ada push ke branch utama
+    branches:
+      - master
+      - main # Tentukan branch utama Anda
 
-jobs: # Sekumpulan pekerjaan
-  deploy: # Pekerjaan untuk deployment
-    name: Deploy to EC2 # Nama pekerjaan
-    runs-on: ubuntu-latest # Sistem operasi yang digunakan
-    steps: # Langkah-langkah deployment
-      - name: Checkout code # Ambil kode dari repository
-        uses: actions/checkout@v2
-      - name: Set up Node.js # Siapkan Node.js
-        uses: actions/setup-node@v2
+jobs:
+  deploy:
+    runs-on: ubuntu-latest # Menggunakan runner Ubuntu terbaru
+    environment: production # Opsional: Menunjukkan ini adalah deployment ke lingkungan produksi
+
+    steps:
+      - uses: actions/checkout@v4 # Checkout kode dari repository
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
         with:
-          node-version: 16 # Versi Node.js
-      - name: Install dependencies # Instal dependensi
-        run: npm install
-      - name: Build application # Build aplikasi (jika ada)
-        run: npm run build # Sesuaikan
-      - name: Deploy to EC2 # Langkah utama: deployment ke EC2
-        uses: appleboy/ssh-action@v0.1.10 # Menggunakan action untuk SSH
+          node-version: "20" # Menggunakan Node.js versi 20
+
+      - name: Install production dependencies
+        run: npm install --production # Menginstal hanya dependensi produksi
+
+      # --- Proses Deployment via SSH ke EC2 ---
+      - name: Deploy to EC2 via SSH
+        uses: appleboy/ssh-action@master # Menggunakan action pihak ketiga untuk SSH
         with:
-          host: ${{ secrets.SSH_HOST }} # Ambil dari GitHub Secrets
-          username: ${{ secrets.SSH_USERNAME }} # Ambil dari Secrets
-          key: ${{ secrets.SSH_PRIVATE_KEY }} # Ambil dari Secrets
-          port: ${{ secrets.SSH_PORT }} # Ambil dari Secrets
-          script: | # Kumpulan perintah yang dijalankan di server EC2
-            cd /var/www/forum-api # Ganti dengan path aplikasi Anda
-            git pull origin main # Update kode
-            npm install --production # Instal dependensi di server
-            npm run migrate # Jalankan migrasi database
-            npm run seed # Jalankan seed jika ada
-            pm2 restart forum-api # Restart aplikasi (gunakan pm2 atau yang sesuai)
+          host: 54.179.173.63 # Host EC2 dari GitHub Secrets
+          username: ubuntu # Username SSH EC2 dari GitHub Secrets
+          key: ${{ secrets.EC2_SSH_PRIVATE_KEY }} # Private Key SSH EC2 dari GitHub Secrets
+          script: |
+            # 1. Navigasi ke direktori aplikasi di server EC2
+            cd ${{ secrets.APP_DIR }}
+
+            # 2. Hentikan aplikasi yang sedang berjalan (jika ada)
+            # '|| true' memastikan skrip tidak gagal jika aplikasi belum berjalan
+            pm2 stop ${{ secrets.APP_NAME }} || true
+
+            # 3. Hapus file lama di direktori aplikasi
+            # HATI-HATI DENGAN PERINTAH INI! Pastikan Anda berada di direktori yang benar
+            # agar tidak menghapus file sistem atau data penting lainnya.
+            sudo rm -rf *
+
+            # 4. Salin file baru dari runner GitHub Actions ke EC2
+            # '$GITHUB_WORKSPACE/.' mengacu pada root direktori proyek di runner GitHub Actions.
+            # 'cp -r . .' menyalin semua isi dari direktori saat ini ke direktori tujuan (yaitu direktori aplikasi di EC2).
+            sudo cp -r $GITHUB_WORKSPACE/. .
+
+            # Opsional: Atur ulang kepemilikan file jika Anda menggunakan user non-root
+            # sudo chown -R ${{ secrets.EC2_USER }}:${{ secrets.EC2_USER }} .
+
+            # 5. Buat atau perbarui file .env untuk environment variables RDS
+            # Aplikasi Anda di EC2 akan membaca variabel ini.
+            echo "RDS_DB_USER=${{ secrets.RDS_DB_USER }}" > .env
+            echo "RDS_DB_HOST=${{ secrets.RDS_DB_HOST }}" >> .env
+            echo "RDS_DB_NAME=${{ secrets.RDS_DB_NAME }}" >> .env
+            echo "RDS_DB_PASSWORD=${{ secrets.RDS_DB_PASSWORD }}" >> .env
+            echo "RDS_DB_PORT=${{ secrets.RDS_DB_PORT }}" >> .env
+
+            # 6. Instal dependensi Node.js di server EC2
+            # Ini penting jika ada dependensi native atau jika Node.js versi di EC2 berbeda.
+            npm install --production
+
+            # 7. Jalankan migrasi database (Jika aplikasi Anda memiliki migrasi DB)
+            # Ini adalah langkah KRITIS untuk aplikasi yang menggunakan database.
+            # Anda perlu memiliki script migrasi di repository Anda (misalnya, menggunakan Knex.js, Sequelize, atau custom script).
+            # Contoh: node ./scripts/run-migrations.js
+            # Contoh Knex.js: npx knex migrate:latest --knexfile knexfile.js --cwd .
+            # Untuk tutorial ini, kita tidak punya migrasi kompleks, jadi ini bisa di-komentar atau disiapkan nanti.
+            # echo "Running database migrations..."
+            # node ./path/to/your/migration/script.js # Ganti dengan script migrasi Anda
+
+            # 8. Mulai ulang/mulai aplikasi dengan PM2
+            # PM2 akan memulai aplikasi dan mengawasinya.
+            # '--env ./.env' memerintahkan PM2 untuk memuat environment variables dari file .env yang baru dibuat.
+            pm2 start ${{ secrets.APP_START_SCRIPT }} --name ${{ secrets.APP_NAME }} --env ./.env
+            pm2 save # Menyimpan status PM2 agar aplikasi otomatis dimulai saat reboot server
