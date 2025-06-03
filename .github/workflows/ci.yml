@@ -21,12 +21,12 @@ jobs:
         run: npm install # Menginstal dependensi proyek
 
       - name: Run Unit Tests (Scenario Sukses)
-        run: npm run test:watch # Jalankan unit tests
+        run: npm run test # Jalankan unit tests
         env:
           NODE_ENV: test
 
       - name: Run Integration Tests (Scenario Sukses - Menghubungkan ke AWS RDS)
-        run: npm run test:integration # Jalankan integration tests
+        run: npm run test:watch # Jalankan integration tests
         env: # Kredensial RDS diambil dari GitHub Secrets
           RDS_DB_USER: developer
           RDS_DB_HOST: forumapi.czoqiq2k8qc3.ap-southeast-1.rds.amazonaws.com
