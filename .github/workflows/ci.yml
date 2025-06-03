@@ -1,83 +1,65 @@
-name: CI # Nama workflow
+name: Continuous Integration
 
-on: # Pemicu workflow
-  push:
-    branches: [main] # Trigger saat ada push ke branch main
-  pull_request:
-    branches: [main] # Trigger saat ada pull request ke branch main
+on:
+  pull_request: # Trigger workflow ini setiap kali ada pull request
+    branches:
+      - master
+      - main # Tentukan branch utama Anda
 
-jobs: # Sekumpulan pekerjaan yang akan dijalankan
-  unit-test: # Pekerjaan untuk menjalankan unit test
-    name: Unit Test # Nama pekerjaan
-    runs-on: ubuntu-latest # Sistem operasi yang digunakan untuk menjalankan pekerjaan
-    steps: # Langkah-langkah yang dijalankan dalam pekerjaan
-      - name: Checkout code # Langkah untuk mengambil kode dari repository
-        uses: actions/checkout@v2
-      - name: Set up Node.js # Langkah untuk menyiapkan Node.js
-        uses: actions/setup-node@v2
+jobs:
+  run-tests: # Job untuk menjalankan semua tes yang sukses
+    runs-on: ubuntu-latest # Menggunakan runner Ubuntu terbaru
+    steps:
+      - uses: actions/checkout@v4 # Checkout kode dari repository
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
         with:
-          node-version: 16 # Versi Node.js yang digunakan
-      - name: Install dependencies # Langkah untuk menginstal dependensi proyek
-        run: npm install
-      - name: Run unit tests # Langkah untuk menjalankan unit test
-        run: npm run test:watch # Sesuaikan dengan perintah untuk menjalankan unit test Anda
-      - name: Check test coverage # Langkah untuk memeriksa cakupan tes
-        uses: codecov/codecov-action@v3 # Menggunakan Codecov untuk melihat laporan cakupan
-        with:
-          fail_ci_if_error: true
+          node-version: '20' # Menggunakan Node.js versi 20
 
-  integration-test: # Pekerjaan untuk menjalankan integration test
-    name: Integration Test
-    runs-on: ubuntu-latest
-    services: # Mendefinisikan layanan yang dibutuhkan, dalam hal ini PostgreSQL untuk integration test
-      postgres:
-        image: postgres:13 # Menggunakan image PostgreSQL versi 13
-        container_name: postgres
+      - name: Install dependencies
+        run: npm install # Menginstal dependensi proyek
+
+      - name: Run Unit Tests (Scenario Sukses)
+        run: npm run test:watch # Jalankan unit tests
         env:
-          POSTGRES_USER: developer # Ganti dengan user PostgreSQL untuk testing
-          POSTGRES_PASSWORD: supersecretpassword # Ganti dengan password PostgreSQL untuk testing
-          POSTGRES_DB: forumapi_test # Ganti dengan nama database untuk testing
-        ports:
-          - "5432:5432" # Memetakan port 5432 di container ke port 5432 di host
-        options: >
-          -e POSTGRES_HOST_AUTH_METHOD=trust # Konfigurasi autentikasi PostgreSQL
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
-      - name: Set up Node.js
-        uses: actions/setup-node@v2
-        with:
-          node-version: 16
-      - name: Install dependencies
-        run: npm install
-      - name: Setup test database # Langkah untuk menyiapkan database untuk testing
-        run: |
-          npm run migrate:test # Sesuaikan dengan perintah migrasi database Anda
-      - name: Run integration tests # Langkah untuk menjalankan integration test
-        env: # Variabel lingkungan yang dibutuhkan untuk menjalankan test
-          DB_HOST: localhost
-          DB_USER: developer # Ganti
-          DB_PASSWORD: supersecretpassword # Ganti
-          DB_NAME: forumapi # Ganti
-          DB_PORT: 5432
-        run: npm run test:integration # Sesuaikan dengan perintah integration test
-      - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@v3
-        with:
-          fail_ci_if_error: true
+          NODE_ENV: test
 
-  failing-test: # Contoh pekerjaan yang sengaja dibuat gagal
-    name: Failing Test
+      - name: Run Integration Tests (Scenario Sukses - Menghubungkan ke AWS RDS)
+        run: npm run test:integration # Jalankan integration tests
+        env: # Kredensial RDS diambil dari GitHub Secrets
+          RDS_DB_USER: developer
+          RDS_DB_HOST: forumapi.czoqiq2k8qc3.ap-southeast-1.rds.amazonaws.com
+          RDS_DB_NAME: forumapi
+          RDS_DB_PASSWORD: supersecretpassword
+          RDS_DB_PORT: 5432
+          NODE_ENV: test
+
+      - name: Run Functional Tests (Scenario Sukses - Menghubungkan ke AWS RDS)
+        run: npm run test:functional # Jalankan functional tests
+        env: # Kredensial RDS juga dibutuhkan oleh aplikasi yang diuji (jika health check konek ke DB)
+          RDS_DB_USER: developer
+          RDS_DB_HOST: forumapi-test.czoqiq2k8qc3.ap-southeast-1.rds.amazonaws.com
+          RDS_DB_NAME: forumapi-test
+          RDS_DB_PASSWORD: supersecretpassword
+          RDS_DB_PORT: 5432
+          NODE_ENV: test
+          PORT: 5000 # Port yang digunakan functional test (sesuai tests/functional.test.js)
+
+  failing-scenario: # Job terpisah untuk mendemonstrasikan skenario gagal
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Set up Node.js
-        uses: actions/setup-node@v2
+        uses: actions/setup-node@v4
         with:
-          node-version: 16
+          node-version: '20'
       - name: Install dependencies
         run: npm install
-      - name: Run a test that fails # Langkah yang menjalankan test yang selalu gagal
+
+      - name: Deliberately Failing Test (Skenario Gagal)
+        # Anda bisa mengaktifkan bagian "SKENARIO GAGAL" di tests/unit.test.js
+        # Atau hanya menjalankan perintah yang pasti gagal seperti ini:
         run: |
-          npm run test:failing # Sesuaikan dengan perintah test yang selalu gagal
+          echo "This job is intentionally designed to fail to show a failed CI scenario."
+          false # Perintah ini akan menyebabkan job ini gagal
