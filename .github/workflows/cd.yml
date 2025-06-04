@@ -27,16 +27,21 @@ jobs:
 
             # Variabel untuk username yang digunakan untuk SSH
             SSH_USER=${{ secrets.EC2_USER || 'ubuntu' }} # Gunakan secrets.EC2_USER jika ada, default ke ubuntu
+            
+            # Variabel untuk direktori aplikasi di EC2.
+            # Anda bisa menggantinya dengan secrets.APP_DIR jika Anda ingin menyimpannya di GitHub Secrets.
+            APP_DIR="/home/ubuntu/my-app" 
 
             echo "--- Memulai Deployment ---"
             echo "Current user on EC2: $(whoami)"
-            echo "Target APP_DIR: ${{ secrets.APP_DIR }}"
+            echo "Target APP_DIR: $APP_DIR"
 
             # 1. Pastikan direktori aplikasi ada dan navigasi ke sana
-            # Buat direktori jika belum ada, dan pastikan user memiliki izin
-            sudo mkdir -p ${{ secrets.APP_DIR }}
-            sudo chown -R $SSH_USER:$SSH_USER ${{ secrets.APP_DIR }}
-            cd ${{ secrets.APP_DIR }}
+            # Karena folder sudah ada, kita hanya perlu masuk ke direktori tersebut.
+            # Jika Anda ingin memastikan direktori dibuat jika tidak ada, uncomment baris di bawah:
+            # sudo mkdir -p $APP_DIR
+            sudo chown -R $SSH_USER:$SSH_USER $APP_DIR # Pastikan user memiliki izin yang benar
+            cd $APP_DIR # Masuk ke direktori aplikasi
 
             echo "Current working directory on EC2: $(pwd)"
             echo "Permissions in APP_DIR before file copy:"
@@ -94,7 +99,7 @@ jobs:
             # Ganti dengan perintah migrasi yang sesuai dengan proyek Anda.
             # Contoh Knex.js: npx knex migrate:latest
             # Pastikan Knex.js terinstal secara global atau sebagai dev dependency di proyek Anda.
-            # npx knex migrate:latest
+            npx knex migrate:latest # Baris ini diaktifkan untuk menjalankan migrasi
             echo "Database migrations command executed (if configured)."
 
             # 8. Mulai ulang/mulai aplikasi dengan PM2
