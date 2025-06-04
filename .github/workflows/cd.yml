@@ -26,7 +26,7 @@ jobs:
             set -e
 
             # Variabel untuk username yang digunakan untuk SSH
-            SSH_USER=${{ secrets.EC2_USER || 'aries' }} # Gunakan secrets.EC2_USER jika ada, default ke ubuntu
+            SSH_USER=${{ secrets.EC2_USER || 'ubuntu' }} # Gunakan secrets.EC2_USER jika ada, default ke ubuntu
 
             echo "--- Memulai Deployment ---"
             echo "Current user on EC2: $(whoami)"
