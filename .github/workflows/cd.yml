@@ -96,10 +96,8 @@ jobs:
 
             # 7. Jalankan migrasi database (Jika aplikasi Anda memiliki migrasi DB)
             echo "Running database migrations..."
-            # Ganti dengan perintah migrasi yang sesuai dengan proyek Anda.
-            # Contoh Knex.js: npx knex migrate:latest
-            # Pastikan Knex.js terinstal secara global atau sebagai dev dependency di proyek Anda.
-            npx knex migrate:latest # Baris ini diaktifkan untuk menjalankan migrasi
+            # Menggunakan perintah migrasi yang sesuai dengan node-pg-migrate
+            npm run migrate # Baris ini diubah untuk menjalankan migrasi menggunakan npm script
             echo "Database migrations command executed (if configured)."
 
             # 8. Mulai ulang/mulai aplikasi dengan PM2
