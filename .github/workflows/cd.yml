@@ -125,6 +125,11 @@ jobs:
             npm cache clean --force
             echo "Menginstal/memperbarui dependensi Node.js (tanpa --production)..."
             npm install # Mengubah dari npm install --production menjadi npm install
+            
+            # Menambahkan langkah npm rebuild untuk memastikan semua modul terkompilasi dengan benar
+            echo "Menjalankan npm rebuild untuk memastikan semua modul terkompilasi dengan benar..."
+            npm rebuild
+            
             echo "Dependensi Node.js terinstal."
 
             # 4. Jalankan migrasi database (Jika aplikasi Anda memiliki migrasi DB)
