@@ -26,7 +26,7 @@ jobs:
           NODE_ENV: test
 
       - name: Run Integration Tests (Scenario Sukses - Menghubungkan ke AWS RDS)
-        run: npm run test:integration # Jalankan integration tests
+        run: npm run test # Jalankan integration tests
         env: # Kredensial RDS diambil dari GitHub Secrets
           RDS_DB_USER: developer
           RDS_DB_HOST: forumapi.czoqiq2k8qc3.ap-southeast-1.rds.amazonaws.com
