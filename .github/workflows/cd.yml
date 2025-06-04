@@ -105,4 +105,8 @@ jobs:
             pm2 start ${{ secrets.APP_START_SCRIPT }} --name ${{ secrets.APP_NAME }} --env ./.env || pm2 restart ${{ secrets.APP_NAME }}
             pm2 save # Menyimpan status PM2 agar aplikasi otomatis dimulai saat reboot server
             echo "PM2 start/restart command executed."
+<<<<<<< HEAD
             echo "--- Deployment Selesai ---"
+=======
+            echo "--- Deployment Selesai ---"
+>>>>>>> 2bf4ca43981396ba43183248148dc8e1f4baaf30
