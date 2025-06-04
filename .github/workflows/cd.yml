@@ -51,16 +51,42 @@ jobs:
             pm2 stop ${{ secrets.APP_NAME }} || true
             echo "PM2 stop command executed."
 
-            # 3. Hapus file lama di direktori aplikasi (kecuali node_modules dan .env)
+            # 3. Hapus file lama di direktori aplikasi (kecuali node_modules, .env, dan direktori sistem)
             # Ini akan menghapus semua file dan folder di root APP_DIR kecuali yang dikecualikan.
-            find . -maxdepth 1 -mindepth 1 ! -name "node_modules" ! -name ".env" -exec rm -rf {} +
-            echo "Old files removed (excluding node_modules and .env)."
+            find . -maxdepth 1 -mindepth 1 \
+              ! -name "node_modules" \
+              ! -name ".env" \
+              ! -name "bin" \
+              ! -name "boot" \
+              ! -name "dev" \
+              ! -name "etc" \
+              ! -name "home" \
+              ! -name "lib" \
+              ! -name "lib64" \
+              ! -name "lost+found" \
+              ! -name "media" \
+              ! -name "mnt" \
+              ! -name "opt" \
+              ! -name "proc" \
+              ! -name "root" \
+              ! -name "run" \
+              ! -name "sbin" \
+              ! -name "srv" \
+              ! -name "sys" \
+              ! -name "tmp" \
+              ! -name "usr" \
+              ! -name "var" \
+              -exec sudo rm -rf {} +
+            echo "Old files removed (excluding node_modules, .env, and system directories)."
             echo "Files after removal:"
             ls -la .
 
             # 4. Salin file baru dari runner GitHub Actions ke EC2
             # Pastikan user yang menyalin memiliki izin yang benar
-            sudo cp -r $GITHUB_WORKSPACE/. .
+            # Mengaktifkan dotglob untuk menyalin file tersembunyi (dotfiles)
+            shopt -s dotglob
+            sudo cp -r $GITHUB_WORKSPACE/* .
+            shopt -u dotglob # Menonaktifkan dotglob
             # Setelah disalin, pastikan kepemilikan file diatur kembali ke user SSH
             sudo chown -R $SSH_USER:$SSH_USER .
             echo "New files copied from GitHub Workspace."
