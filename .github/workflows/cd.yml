@@ -81,7 +81,18 @@ jobs:
             ls -la .
 
             # 2. Buat atau perbarui file .env untuk environment variables RDS dan Token
-            echo "--- Membuat/Memperbarui file .env ---"
+            echo "--- Memulai proses pembuatan/pembaruan file .env ---"
+            echo "Verifikasi direktori saat ini: $(pwd)"
+            echo "Verifikasi izin direktori saat ini:"
+            ls -ld .
+
+            # Hapus file .env lama jika ada, untuk memastikan bersih
+            if [ -f ".env" ]; then
+                echo "Menghapus file .env lama..."
+                rm .env
+            fi
+
+            echo "Menulis variabel lingkungan ke .env..."
             echo "PGUSER=${{ secrets.RDS_DB_USER }}" > .env
             echo "PGHOST=${{ secrets.RDS_DB_HOST }}" >> .env
             echo "PGDATABASE=${{ secrets.RDS_DB_NAME }}" >> .env
@@ -95,7 +106,11 @@ jobs:
             echo "ACCESS_TOKEN_KEY=8b7b4ef375716ab08b2a3951b29d52fc00b1c855f9d1a847229b8c5935bef56d9d271e76a9cf08e614300395c3b90ebe559cf968a0741b18c9505549394b2c70" >> .env
             echo "REFRESH_TOKEN_KEY=5078605e074a462b1460608fcbe0d0963c644402e04ad334455ff5a856cb43fd99825861dde02957d5e3184c90c532ca7d0249df20fe93d535632f3d11be7bad" >> .env
             echo "ACCCESS_TOKEN_AGE=3000" >> .env
-            echo ".env file content:"
+            
+            echo "File .env berhasil dibuat."
+            echo "Verifikasi keberadaan dan izin file .env:"
+            ls -la .env # Menampilkan detail file .env
+            echo "Isi file .env:"
             cat .env # Menampilkan isi .env untuk verifikasi
 
             # 3. Instal atau perbarui dependensi Node.js di server EC2
