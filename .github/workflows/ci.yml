@@ -26,7 +26,7 @@ jobs:
           NODE_ENV: test
 
       - name: Run Integration Tests (Scenario Sukses - Menghubungkan ke AWS RDS)
-        run: npm run test:watch # Jalankan integration tests
+        run: npm run test # Jalankan integration tests
         env: # Kredensial RDS diambil dari GitHub Secrets
           RDS_DB_USER: developer
           RDS_DB_HOST: forumapi.czoqiq2k8qc3.ap-southeast-1.rds.amazonaws.com
@@ -36,7 +36,7 @@ jobs:
           NODE_ENV: test
 
       - name: Run Functional Tests (Scenario Sukses - Menghubungkan ke AWS RDS)
-        run: npm run test:functional # Jalankan functional tests
+        run: npm run test:watch # Jalankan functional tests
         env: # Kredensial RDS juga dibutuhkan oleh aplikasi yang diuji (jika health check konek ke DB)
           RDS_DB_USER: developer
           RDS_DB_HOST: forumapi-test.czoqiq2k8qc3.ap-southeast-1.rds.amazonaws.com
