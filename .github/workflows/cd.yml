@@ -52,11 +52,23 @@ jobs:
 
             # 5. Buat atau perbarui file .env untuk environment variables RDS
             # Aplikasi Anda di EC2 akan membaca variabel ini.
-            echo "RDS_DB_USER=${{ secrets.RDS_DB_USER }}" > .env
-            echo "RDS_DB_HOST=${{ secrets.RDS_DB_HOST }}" >> .env
-            echo "RDS_DB_NAME=${{ secrets.RDS_DB_NAME }}" >> .env
-            echo "RDS_DB_PASSWORD=${{ secrets.RDS_DB_PASSWORD }}" >> .env
-            echo "RDS_DB_PORT=${{ secrets.RDS_DB_PORT }}" >> .env
+            echo "PGUSER=${{ secrets.RDS_DB_USER }}" > .env
+            echo "PGHOST=${{ secrets.RDS_DB_HOST }}" >> .env
+            echo "PGDATABASE=${{ secrets.RDS_DB_NAME }}" >> .env
+            echo "PGPASSWORD=${{ secrets.RDS_DB_PASSWORD }}" >> .env
+            echo "PGPORT=${{ secrets.RDS_DB_PORT }}" >> .env
+
+
+            echo "PGUSER_TEST=developer" > .env
+            echo "PGHOST_TEST=forumapi-test.czoqiq2k8qc3.ap-southeast-1.rds.amazonaws.com" >> .env
+            echo "PGDATABASE_TEST=forumapi-test" >> .env
+            echo "PGPASSWORD_TEST=supersecretpassword" >> .env
+            echo "PGPORT_TEST=5432" >> .env
+
+            # TOKENIZE
+            echo "ACCESS_TOKEN_KEY=8b7b4ef375716ab08b2a3951b29d52fc00b1c855f9d1a847229b8c5935bef56d9d271e76a9cf08e614300395c3b90ebe559cf968a0741b18c9505549394b2c70" >> .env
+            echo "REFRESH_TOKEN_KEY=5078605e074a462b1460608fcbe0d0963c644402e04ad334455ff5a856cb43fd99825861dde02957d5e3184c90c532ca7d0249df20fe93d535632f3d11be7bad" >> .env
+            echo "ACCCESS_TOKEN_AGE=3000" >> .env
 
             # 6. Instal dependensi Node.js di server EC2
             # Ini penting jika ada dependensi native atau jika Node.js versi di EC2 berbeda.
