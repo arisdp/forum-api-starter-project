@@ -32,14 +32,17 @@ jobs:
             # Anda bisa menggantinya dengan secrets.APP_DIR jika Anda ingin menyimpannya di GitHub Secrets.
             APP_DIR="/home/ubuntu/my-app" 
             
-            # URL repositori Git Anda. HARUS DITAMBAHKAN KE GITHUB SECRETS!
-            # Contoh: https://github.com/your-org/your-repo.git
+            # URL repositori Git Anda.
+            # Sekarang sudah diatur secara langsung.
             REPO_URL="https://github.com/arisdp/forum-api-starter-project" 
             
-            # Nama aplikasi untuk systemd service. Gunakan nama yang konsisten.
-            # Contoh: "my-node-app" -> service file akan menjadi my-node-app.service
-            SYSTEMD_SERVICE_NAME="${{ secrets.APP_NAME || 'forum-api-starter-project' }}" 
-            APP_START_SCRIPT="npm run start" # Contoh: "src/server.js" atau "dist/index.js"
+            # Nama aplikasi untuk systemd service.
+            # Sekarang sudah diatur secara langsung.
+            SYSTEMD_SERVICE_NAME="forum-api-starter-project" 
+            
+            # Script untuk memulai aplikasi.
+            # Sekarang sudah diatur secara langsung.
+            APP_START_SCRIPT="npm run start" 
 
             echo "--- Memulai Deployment (Metode Clone Only, Tanpa PM2) ---"
             echo "Current user on EC2: $(whoami)"
@@ -49,22 +52,28 @@ jobs:
 
             # Pastikan direktori induk dari APP_DIR ada dan user memiliki izin yang benar
             # Ini penting jika APP_DIR belum pernah dibuat sebelumnya
-            sudo mkdir -p $(dirname $APP_DIR)
-            sudo chown -R $SSH_USER:$SSH_USER $(dirname $APP_DIR)
+            sudo mkdir -p "$(dirname "$APP_DIR")"
+            sudo chown -R "$SSH_USER":"$SSH_USER" "$(dirname "$APP_DIR")"
 
             # 1. Clone atau Pull Repositori
             if [ -d "$APP_DIR/.git" ]; then
-                echo "Repositori sudah ada di EC2. Melakukan git pull..."
-                cd $APP_DIR
+                echo "Repositori sudah ada di EC2 dan merupakan repositori Git. Melakukan git pull..."
+                cd "$APP_DIR"
                 # Pastikan user memiliki izin yang benar di direktori repo sebelum pull
-                sudo chown -R $SSH_USER:$SSH_USER . 
+                sudo chown -R "$SSH_USER":"$SSH_USER" . 
                 git pull origin ${{ github.ref_name }} # Pull dari branch yang sedang di-deploy
             else
-                echo "Repositori belum ada di EC2. Melakukan git clone..."
-                git clone $REPO_URL $APP_DIR
-                cd $APP_DIR
+                # Jika direktori tidak ada, atau ada tapi bukan repositori Git, lakukan clone baru.
+                # Pastikan direktori bersih sebelum clone.
+                if [ -d "$APP_DIR" ]; then
+                    echo "Direktori $APP_DIR ada tapi bukan repositori Git. Menghapus direktori lama..."
+                    sudo rm -rf "$APP_DIR"
+                fi
+                echo "Repositori belum ada di EC2 atau bukan repositori Git. Melakukan git clone..."
+                git clone "$REPO_URL" "$APP_DIR"
+                cd "$APP_DIR"
                 # Pastikan user memiliki izin yang benar di direktori repo setelah clone
-                sudo chown -R $SSH_USER:$SSH_USER . 
+                sudo chown -R "$SSH_USER":"$SSH_USER" . 
             fi
             
             echo "Current working directory on EC2: $(pwd)"
@@ -103,7 +112,7 @@ jobs:
             echo "--- Membuat/Memperbarui systemd service file ---"
             # Pastikan user SSH_USER memiliki izin untuk menulis ke /etc/systemd/system/
             # Ini memerlukan sudo
-            sudo tee /etc/systemd/system/$SYSTEMD_SERVICE_NAME.service > /dev/null <<EOF
+            sudo tee /etc/systemd/system/"$SYSTEMD_SERVICE_NAME".service > /dev/null <<EOF
             [Unit]
             Description=Node.js Application: $SYSTEMD_SERVICE_NAME
             After=network.target
@@ -128,10 +137,10 @@ jobs:
             echo "Me-reload systemd daemon..."
             sudo systemctl daemon-reload
             echo "Menghentikan layanan $SYSTEMD_SERVICE_NAME (jika berjalan)..."
-            sudo systemctl stop $SYSTEMD_SERVICE_NAME || true # '|| true' agar script tidak gagal jika layanan belum berjalan
+            sudo systemctl stop "$SYSTEMD_SERVICE_NAME" || true # '|| true' agar script tidak gagal jika layanan belum berjalan
             echo "Memulai/memulai ulang layanan $SYSTEMD_SERVICE_NAME..."
-            sudo systemctl start $SYSTEMD_SERVICE_NAME
+            sudo systemctl start "$SYSTEMD_SERVICE_NAME"
             echo "Mengaktifkan layanan $SYSTEMD_SERVICE_NAME agar otomatis dimulai saat boot..."
-            sudo systemctl enable $SYSTEMD_SERVICE_NAME
+            sudo systemctl enable "$SYSTEMD_SERVICE_NAME"
             
             echo "--- Deployment Selesai ---"
