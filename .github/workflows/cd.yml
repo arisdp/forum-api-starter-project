@@ -14,77 +14,95 @@ jobs:
     steps:
       - uses: actions/checkout@v4 # Checkout kode dari repository
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20" # Menggunakan Node.js versi 20
-
-      - name: Install production dependencies
-        run: npm install --production # Menginstal hanya dependensi produksi
-
       # --- Proses Deployment via SSH ke EC2 ---
       - name: Deploy to EC2 via SSH
         uses: appleboy/ssh-action@master # Menggunakan action pihak ketiga untuk SSH
         with:
-          host: 54.179.173.63 # Host EC2 dari GitHub Secrets
-          username: ubuntu # Username SSH EC2 dari GitHub Secrets
+          host: 54.179.173.63 # Host EC2 Anda
+          username: ubuntu # Username SSH EC2 Anda
           key: ${{ secrets.EC2_SSH_PRIVATE_KEY }} # Private Key SSH EC2 dari GitHub Secrets
           script: |
-            # 1. Navigasi ke direktori aplikasi di server EC2
-            cd ${{ secrets.APP_DIR }}
+            # Mengaktifkan mode "exit on error" untuk debugging
+            set -e
+
+            # Variabel untuk username yang digunakan untuk SSH
+            SSH_USER=${{ secrets.EC2_USER || 'ubuntu' }} # Gunakan secrets.EC2_USER jika ada, default ke ubuntu
+            
+            # Variabel untuk direktori aplikasi di EC2.
+            # Anda bisa menggantinya dengan secrets.APP_DIR jika Anda ingin menyimpannya di GitHub Secrets.
+            APP_DIR="/home/ubuntu/my-app" 
+
+            echo "--- Memulai Deployment ---"
+            echo "Current user on EC2: $(whoami)"
+            echo "Target APP_DIR: $APP_DIR"
+
+            # 1. Pastikan direktori aplikasi ada dan navigasi ke sana
+            # Karena folder sudah ada, kita hanya perlu masuk ke direktori tersebut.
+            # Jika Anda ingin memastikan direktori dibuat jika tidak ada, uncomment baris di bawah:
+            # sudo mkdir -p $APP_DIR
+            sudo chown -R $SSH_USER:$SSH_USER $APP_DIR # Pastikan user memiliki izin yang benar
+            cd $APP_DIR # Masuk ke direktori aplikasi
+
+            echo "Current working directory on EC2: $(pwd)"
+            echo "Permissions in APP_DIR before file copy:"
+            ls -la .
 
             # 2. Hentikan aplikasi yang sedang berjalan (jika ada)
-            # '|| true' memastikan skrip tidak gagal jika aplikasi belum berjalan
             pm2 stop ${{ secrets.APP_NAME }} || true
+            echo "PM2 stop command executed."
 
-            # 3. Hapus file lama di direktori aplikasi
-            # HATI-HATI DENGAN PERINTAH INI! Pastikan Anda berada di direktori yang benar
-            # agar tidak menghapus file sistem atau data penting lainnya.
-            sudo rm -rf *
+            # 3. Hapus file lama di direktori aplikasi (kecuali node_modules dan .env)
+            # Ini akan menghapus semua file dan folder di root APP_DIR kecuali yang dikecualikan.
+            find . -maxdepth 1 -mindepth 1 ! -name "node_modules" ! -name ".env" -exec rm -rf {} +
+            echo "Old files removed (excluding node_modules and .env)."
+            echo "Files after removal:"
+            ls -la .
 
             # 4. Salin file baru dari runner GitHub Actions ke EC2
-            # '$GITHUB_WORKSPACE/.' mengacu pada root direktori proyek di runner GitHub Actions.
-            # 'cp -r . .' menyalin semua isi dari direktori saat ini ke direktori tujuan (yaitu direktori aplikasi di EC2).
+            # Pastikan user yang menyalin memiliki izin yang benar
             sudo cp -r $GITHUB_WORKSPACE/. .
+            # Setelah disalin, pastikan kepemilikan file diatur kembali ke user SSH
+            sudo chown -R $SSH_USER:$SSH_USER .
+            echo "New files copied from GitHub Workspace."
+            echo "Files after copy:"
+            ls -la .
 
-            # Opsional: Atur ulang kepemilikan file jika Anda menggunakan user non-root
-            # sudo chown -R ${{ secrets.EC2_USER }}:${{ secrets.EC2_USER }} .
-
-            # 5. Buat atau perbarui file .env untuk environment variables RDS
-            # Aplikasi Anda di EC2 akan membaca variabel ini.
+            # 5. Buat atau perbarui file .env untuk environment variables RDS dan Token
+            # Pastikan perintah ini dijalankan sebagai user yang memiliki izin tulis
+            # Karena kita sudah chown direktori, echo seharusnya bisa menulis langsung.
+            echo "--- Creating/Updating .env file ---"
             echo "PGUSER=${{ secrets.RDS_DB_USER }}" > .env
             echo "PGHOST=${{ secrets.RDS_DB_HOST }}" >> .env
             echo "PGDATABASE=${{ secrets.RDS_DB_NAME }}" >> .env
             echo "PGPASSWORD=${{ secrets.RDS_DB_PASSWORD }}" >> .env
             echo "PGPORT=${{ secrets.RDS_DB_PORT }}" >> .env
 
-
-            echo "PGUSER_TEST=developer" > .env
+            echo "PGUSER_TEST=developer" >> .env
             echo "PGHOST_TEST=forumapi-test.czoqiq2k8qc3.ap-southeast-1.rds.amazonaws.com" >> .env
             echo "PGDATABASE_TEST=forumapi-test" >> .env
             echo "PGPASSWORD_TEST=supersecretpassword" >> .env
             echo "PGPORT_TEST=5432" >> .env
 
-            # TOKENIZE
             echo "ACCESS_TOKEN_KEY=8b7b4ef375716ab08b2a3951b29d52fc00b1c855f9d1a847229b8c5935bef56d9d271e76a9cf08e614300395c3b90ebe559cf968a0741b18c9505549394b2c70" >> .env
             echo "REFRESH_TOKEN_KEY=5078605e074a462b1460608fcbe0d0963c644402e04ad334455ff5a856cb43fd99825861dde02957d5e3184c90c532ca7d0249df20fe93d535632f3d11be7bad" >> .env
             echo "ACCCESS_TOKEN_AGE=3000" >> .env
+            echo ".env file content:"
+            cat .env # Menampilkan isi .env untuk verifikasi
 
-            # 6. Instal dependensi Node.js di server EC2
-            # Ini penting jika ada dependensi native atau jika Node.js versi di EC2 berbeda.
+            # 6. Instal atau perbarui dependensi Node.js di server EC2
+            echo "Installing/updating Node.js dependencies..."
             npm install --production
+            echo "Node.js dependencies installed."
 
             # 7. Jalankan migrasi database (Jika aplikasi Anda memiliki migrasi DB)
-            # Ini adalah langkah KRITIS untuk aplikasi yang menggunakan database.
-            # Anda perlu memiliki script migrasi di repository Anda (misalnya, menggunakan Knex.js, Sequelize, atau custom script).
-            # Contoh: node ./scripts/run-migrations.js
-            # Contoh Knex.js: npx knex migrate:latest --knexfile knexfile.js --cwd .
-            # Untuk tutorial ini, kita tidak punya migrasi kompleks, jadi ini bisa di-komentar atau disiapkan nanti.
-            # echo "Running database migrations..."
-            # node ./path/to/your/migration/script.js # Ganti dengan script migrasi Anda
+            echo "Running database migrations..."
+            # Menggunakan perintah migrasi yang sesuai dengan node-pg-migrate
+            npm run migrate # Baris ini diubah untuk menjalankan migrasi menggunakan npm script
+            echo "Database migrations command executed (if configured)."
 
             # 8. Mulai ulang/mulai aplikasi dengan PM2
-            # PM2 akan memulai aplikasi dan mengawasinya.
-            # '--env ./.env' memerintahkan PM2 untuk memuat environment variables dari file .env yang baru dibuat.
-            pm2 start ${{ secrets.APP_START_SCRIPT }} --name ${{ secrets.APP_NAME }} --env ./.env
+            echo "Starting/restarting application with PM2..."
+            pm2 start ${{ secrets.APP_START_SCRIPT }} --name ${{ secrets.APP_NAME }} --env ./.env || pm2 restart ${{ secrets.APP_NAME }}
             pm2 save # Menyimpan status PM2 agar aplikasi otomatis dimulai saat reboot server
+            echo "PM2 start/restart command executed."
+            echo "--- Deployment Selesai ---"
