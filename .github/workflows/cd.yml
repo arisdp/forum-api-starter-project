@@ -115,7 +115,7 @@ jobs:
 
             # 3. Instal atau perbarui dependensi Node.js di server EC2
             echo "Menginstal/memperbarui dependensi Node.js..."
-            npm install --production
+            npm install 
             echo "Dependensi Node.js terinstal."
 
             # 4. Jalankan migrasi database (Jika aplikasi Anda memiliki migrasi DB)
